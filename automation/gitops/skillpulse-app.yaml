@@ -10,7 +10,7 @@ spec:
 
   source:
     repoURL: 'https://github.com/Ayushrai001/github-actions-kubernetes-masterclass.git'
-    targetRevision: HEAD
+    targetRevision: main
     path: k8s-prod
 
   destination:
