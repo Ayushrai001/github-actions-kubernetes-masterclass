@@ -21,3 +21,13 @@ CLAUDE.md
 docs/skillpulse-cicd-guide.html
 docs/skillpulse-kubernetes-guide.html
 *.tar.gz
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Sensitive files
+*.pem
+.env
