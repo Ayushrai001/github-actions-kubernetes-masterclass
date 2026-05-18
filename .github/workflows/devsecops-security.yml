@@ -1,9 +1,11 @@
 name: DevSecOps Security Pipeline
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows:
+      - CI Pipeline
+    types:
+      - completed
 
 env:
   DOCKER_USERNAME: ayushrai0001
@@ -12,34 +14,46 @@ env:
 
 jobs:
 
+  # =====================================================
+  # SAST SECURITY SCAN
+  # =====================================================
+
   sast_scan:
     name: Code Security & SAST
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Run Semgrep
+      - name: Run Semgrep SAST Scan
         uses: returntocorp/semgrep-action@v1
 
+  # =====================================================
+  # SECRET SCANNING
+  # =====================================================
+
   secrets_scan:
-    name: Code Lint & Secrets Scan
+    name: Secrets Detection Scan
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Run Gitleaks
+      - name: Run Gitleaks Scan
         uses: gitleaks/gitleaks-action@v2
+
+  # =====================================================
+  # FILESYSTEM / COMPLIANCE SCAN
+  # =====================================================
 
   compliance_scan:
     name: Infrastructure Compliance Scan
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Source Code
         uses: actions/checkout@v4
 
       - name: Run Trivy Filesystem Scan
@@ -48,8 +62,12 @@ jobs:
           scan-type: fs
           scan-ref: .
 
+  # =====================================================
+  # BACKEND IMAGE SECURITY SCAN
+  # =====================================================
+
   backend_image_scan:
-    name: Scan Backend Image
+    name: Backend Docker Image Scan
     runs-on: ubuntu-latest
 
     needs:
@@ -58,12 +76,29 @@ jobs:
       - compliance_scan
 
     steps:
-      - name: Scan Backend Docker Image
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Pull Backend Docker Image
         run: |
-          echo "Scanning backend image"
+          docker pull $DOCKER_USERNAME/$BACKEND_IMAGE:latest
+
+      - name: Run Trivy Backend Image Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.DOCKER_USERNAME }}/${{ env.BACKEND_IMAGE }}:latest'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+
+  # =====================================================
+  # FRONTEND IMAGE SECURITY SCAN
+  # =====================================================
 
   frontend_image_scan:
-    name: Scan Frontend Image
+    name: Frontend Docker Image Scan
     runs-on: ubuntu-latest
 
     needs:
@@ -72,13 +107,52 @@ jobs:
       - compliance_scan
 
     steps:
-      - name: Scan Frontend Docker Image
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Pull Frontend Docker Image
         run: |
-          echo "Scanning frontend image"
+          docker pull $DOCKER_USERNAME/$FRONTEND_IMAGE:latest
+
+      - name: Run Trivy Frontend Image Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.DOCKER_USERNAME }}/${{ env.FRONTEND_IMAGE }}:latest'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+
+  # =====================================================
+  # DAST PLACEHOLDER
+  # =====================================================
 
   dast_scan:
-    name: ZAP DAST Scan
+    name: OWASP ZAP DAST Scan
     runs-on: ubuntu-latest
 
     needs:
-          echo "Checking Prometheus and Grafana"
+      - backend_image_scan
+      - frontend_image_scan
+
+    steps:
+      - name: OWASP ZAP Placeholder
+        run: |
+          echo "OWASP ZAP integration will be implemented later"
+
+  # =====================================================
+  # TELEMETRY VALIDATION PLACEHOLDER
+  # =====================================================
+
+  telemetry_validation:
+    name: Monitoring & Telemetry Validation
+    runs-on: ubuntu-latest
+
+    needs:
+      - dast_scan
+
+    steps:
+      - name: Prometheus & Grafana Validation Placeholder
+        run: |
+          echo "Telemetry validation will be implemented later"
