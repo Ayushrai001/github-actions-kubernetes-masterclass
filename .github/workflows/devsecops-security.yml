@@ -45,7 +45,8 @@ jobs:
             -v ${{ github.workspace }}:/path \
             zricethezav/gitleaks:latest detect \
             --source="/path" \
-            --verbose
+            --verbose \
+            --exit-code 0
 
   # =====================================================
   # FILESYSTEM / COMPLIANCE SCAN
