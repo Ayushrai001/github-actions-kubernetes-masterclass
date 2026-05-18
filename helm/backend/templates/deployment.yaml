@@ -28,9 +28,9 @@ spec:
             - name: PORT
               value: "8080"
             - name: DB_USER
-              value: root
+              value: skillpulseuser
             - name: DB_PASSWORD
-              value: password
+              value: skillpulsepass
             - name: DB_NAME
               value: skillpulse
           resources:
