@@ -1,0 +1,16 @@
+replicaCount: 2
+
+image:
+  repository: trainwithshubham/skillpulse-frontend
+  tag: latest
+
+service:
+  type: LoadBalancer
+
+resources:
+  requests:
+    memory: 128Mi
+    cpu: 100m
+
+  limits:
+    memory: 256Mi

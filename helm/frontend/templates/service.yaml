@@ -4,17 +4,13 @@ kind: Service
 metadata:
   name: frontend
 
-  labels:
-    app: frontend
-
 spec:
-  type: NodePort
+  type: {{ .Values.service.type }}
 
   selector:
     app: frontend
 
   ports:
-    - name: http
+    - protocol: TCP
       port: 80
       targetPort: 80
-      nodePort: 30080
