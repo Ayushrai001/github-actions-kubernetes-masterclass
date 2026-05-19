@@ -1,33 +1,31 @@
-name: CD Helm Deployment
+name: Helm Deployment
 
 on:
-  workflow_run:
-    workflows: ["DevSecOps Security Pipeline"]
-    types:
-      - completed
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: ap-south-1
+  CLUSTER_NAME: skillpulse-cluster
 
 jobs:
-
   deploy:
-    name: Deploy Application to EKS
+    name: Deploy to EKS using Helm
     runs-on: ubuntu-latest
-
-    env:
-      AWS_REGION: ap-south-1
-      CLUSTER_NAME: skillpulse-cluster
 
     steps:
 
-      # =========================
-      # Checkout Repository
-      # =========================
+      # =====================================================
+      # CHECKOUT SOURCE CODE
+      # =====================================================
 
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # =========================
-      # Configure AWS Credentials
-      # =========================
+      # =====================================================
+      # CONFIGURE AWS CREDENTIALS
+      # =====================================================
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -36,101 +34,67 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # =========================
-      # Setup kubectl
-      # =========================
+      # =====================================================
+      # VERIFY AWS LOGIN
+      # =====================================================
 
-      - name: Setup Kubectl
+      - name: Verify AWS Identity
+        run: aws sts get-caller-identity
+
+      # =====================================================
+      # INSTALL KUBECTL
+      # =====================================================
+
+      - name: Setup kubectl
         uses: azure/setup-kubectl@v4
 
-      # =========================
-      # Setup Helm
-      # =========================
+      # =====================================================
+      # INSTALL HELM
+      # =====================================================
 
       - name: Setup Helm
         uses: azure/setup-helm@v4
 
-      # =========================
-      # Update kubeconfig
-      # =========================
+      # =====================================================
+      # CONNECT TO EKS CLUSTER
+      # =====================================================
 
       - name: Update kubeconfig
         run: |
           aws eks update-kubeconfig \
-          --region $AWS_REGION \
-          --name $CLUSTER_NAME
+            --region $AWS_REGION \
+            --name $CLUSTER_NAME
 
-      # =========================
-      # Verify Cluster Access
-      # =========================
+      # =====================================================
+      # VERIFY CLUSTER CONNECTION
+      # =====================================================
 
-      - name: Verify Kubernetes Cluster
+      - name: Verify Kubernetes Connection
         run: |
           kubectl get nodes
-          kubectl get ns
+          kubectl get pods -A
 
-      # =========================
-      # Create Namespace
-      # =========================
-
-      - name: Ensure Dev Namespace Exists
-        run: |
-          kubectl create namespace dev --dry-run=client -o yaml | kubectl apply -f -
-
-      # =========================
-      # Deploy Backend
-      # =========================
-
-      - name: Helm Upgrade Backend
-        run: |
-          helm upgrade --install backend ./helm/backend \
-          -n dev
-
-      # =========================
-      # Deploy Frontend
-      # =========================
+      # =====================================================
+      # DEPLOY FRONTEND
+      # =====================================================
 
       - name: Helm Upgrade Frontend
         run: |
-          helm upgrade --install frontend ./helm/frontend \
-          -n dev
+          helm upgrade --install frontend ./helm/frontend -n dev --create-namespace
 
-      # =========================
-      # Deployment Verification
-      # =========================
+      # =====================================================
+      # DEPLOY BACKEND
+      # =====================================================
 
-      - name: Verify Deployments
+      - name: Helm Upgrade Backend
         run: |
-          kubectl get all -n dev
+          helm upgrade --install backend ./helm/backend -n dev --create-namespace
 
-      # =========================
-      # Verify Services
-      # =========================
+      # =====================================================
+      # VERIFY DEPLOYMENT
+      # =====================================================
 
-      - name: Verify Services
-        run: |
-          kubectl get svc -n dev
-
-      # =========================
-      # Verify Pods
-      # =========================
-
-      - name: Verify Pods
+      - name: Verify Deployment
         run: |
           kubectl get pods -n dev
-
-      # =========================
-      # Helm Release Status
-      # =========================
-
-      - name: Helm Status
-        run: |
-          helm list -n dev
-
-      # =========================
-      # Deployment Success
-      # =========================
-
-      - name: Deployment Completed
-        run: |
-          echo "Application deployed successfully to EKS using Helm"
+          kubectl get svc -n dev
