@@ -1,30 +1,10 @@
-module "vpc" {
-  source = "../../modules/vpc"
+module "core" {
+  source = "../../modules/core"
 
-  vpc_cidr = "10.0.0.0/16"
-  vpc_name = "skillpulse-dev-vpc"
-
-  azs = [
-    "ap-south-1a",
-    "ap-south-1b"
-  ]
-}
-
-module "iam" {
-  source = "../../modules/iam"
-}
-
-module "eks" {
-  source = "../../modules/eks"
-
-  cluster_name = "skillpulse-eks"
-
-  cluster_role_arn = module.iam.cluster_role_arn
-  node_role_arn    = module.iam.node_role_arn
-
-  subnet_ids = module.vpc.public_subnets
-
-  eks_cluster_policy     = module.iam.eks_cluster_policy
-  eks_worker_node_policy = module.iam.worker_node_policy
-  ecr_readonly_policy    = module.iam.ecr_readonly_policy
+  aws_region         = "eu-west-1"
+  project_name       = "skillpulse-dev"
+  vpc_cidr           = "10.1.0.0/16"
+  cluster_version    = "1.31"
+  node_instance_type = "c7i-flex.large"
+  environment        = "dev"
 }
