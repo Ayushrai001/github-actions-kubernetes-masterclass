@@ -22,7 +22,7 @@ spec:
       containers:
       - name: frontend
 
-        image: ayushrai0001/skillpulse-frontend:bdd6641b652ccf82fa311358a8f4e632e1ba7b74
+        image: ayushrai0001/skillpulse-frontend:c551dbcb394dc30b28c65012b77eb71c070eeedb
         imagePullPolicy: Always
 
         ports:
