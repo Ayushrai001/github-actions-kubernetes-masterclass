@@ -152,8 +152,9 @@ jobs:
 
       - name: Login to DockerHub
         uses: docker/login-action@v3
+        
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ env.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build Frontend Docker Image
@@ -291,8 +292,8 @@ jobs:
           server_address: smtp.gmail.com
           server_port: 465
 
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
           subject: "SkillPulse DevSecOps Pipeline Status"
 
