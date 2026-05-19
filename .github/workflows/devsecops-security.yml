@@ -1,6 +1,6 @@
 name: Production DevSecOps Pipeline
 
-on:
+'on':
   push:
     branches:
       - main
@@ -26,7 +26,7 @@ concurrency:
 jobs:
 
   # =========================================================
-  # STAGE 0 — YAML VALIDATION
+  # STAGE 1 — YAML LINT
   # =========================================================
 
   yaml-lint:
@@ -39,17 +39,20 @@ jobs:
 
       - name: Run YAML Lint
         uses: ibiqlik/action-yamllint@v3
+        with:
+          config_file: .yamllint.yml
 
   # =========================================================
-  # STAGE 1 — SECURITY & COMPLIANCE
+  # STAGE 2 — SECURITY & COMPLIANCE
   # =========================================================
 
   security-audit:
-    name: 🛡️ Security Audit & SAST
-    runs-on: ubuntu-latest
+    name: 🛡️ Code Security & SAST
 
     needs:
       - yaml-lint
+
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Source Code
@@ -72,21 +75,21 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           $(go env GOPATH)/bin/govulncheck ./backend/... || true
 
-      - name: Discord Security Notification
+      - name: Discord Security Alert
         if: success()
         uses: Ilshidur/action-discord@master
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         with:
           args: |
-            🛡️ Security Audit Completed Successfully
+            🛡️ Security Audit Passed
 
             Repository: ${{ github.repository }}
             Branch: ${{ github.ref_name }}
             Commit: ${{ github.sha }}
 
   # =========================================================
-  # STAGE 2 — INFRASTRUCTURE SECURITY
+  # STAGE 3 — INFRASTRUCTURE SECURITY
   # =========================================================
 
   iac-audit:
@@ -108,23 +111,12 @@ jobs:
         run: |
           checkov -d . --framework terraform,kubernetes --soft-fail
 
-      - name: Discord Checkov Alert
-        if: success()
-        uses: Ilshidur/action-discord@master
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        with:
-          args: |
-            🏗️ Infrastructure Compliance Scan Completed
-
-            Checkov validation passed successfully.
-
   # =========================================================
-  # STAGE 3 — CODE LINT & SECRET SCAN
+  # STAGE 4 — LINT & SECRET SCAN
   # =========================================================
 
   lint-audit:
-    name: 🔍 Lint & Secret Detection
+    name: 🔍 Code Lint & Secrets Scan
     runs-on: ubuntu-latest
 
     needs:
@@ -151,25 +143,17 @@ jobs:
           dockerfile: backend/Dockerfile
           ignore: DL3008,DL3007
 
-      - name: Discord Lint Notification
-        if: success()
-        uses: Ilshidur/action-discord@master
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        with:
-          args: |
-            🔍 Linting & Secret Scan Passed Successfully
-
   # =========================================================
-  # STAGE 4 — BUILD BACKEND
+  # STAGE 5 — BUILD BACKEND
   # =========================================================
 
   build-backend:
     name: 📦 Build Backend Service
-    runs-on: ubuntu-latest
 
     needs:
       - lint-audit
+
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Source Code
@@ -191,17 +175,18 @@ jobs:
       - name: Run Trivy Backend Scan
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: '${{ env.DOCKER_USERNAME }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}'
-          format: table
-          exit-code: 0
-          severity: CRITICAL,HIGH
+          image-ref: >
+            ${{ env.DOCKER_USERNAME }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
 
       - name: Push Backend Docker Image
         run: |
           docker push $DOCKER_USERNAME/$BACKEND_IMAGE:${{ github.sha }}
           docker push $DOCKER_USERNAME/$BACKEND_IMAGE:latest
 
-      - name: Discord Backend Notification
+      - name: Discord Backend Build Alert
         if: success()
         uses: Ilshidur/action-discord@master
         env:
@@ -214,15 +199,16 @@ jobs:
             ${{ env.DOCKER_USERNAME }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
 
   # =========================================================
-  # STAGE 5 — BUILD FRONTEND
+  # STAGE 6 — BUILD FRONTEND
   # =========================================================
 
   build-frontend:
     name: 🎨 Build Frontend Service
-    runs-on: ubuntu-latest
 
     needs:
       - lint-audit
+
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Source Code
@@ -244,17 +230,18 @@ jobs:
       - name: Run Trivy Frontend Scan
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: '${{ env.DOCKER_USERNAME }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}'
-          format: table
-          exit-code: 0
-          severity: CRITICAL,HIGH
+          image-ref: >
+            ${{ env.DOCKER_USERNAME }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
 
       - name: Push Frontend Docker Image
         run: |
           docker push $DOCKER_USERNAME/$FRONTEND_IMAGE:${{ github.sha }}
           docker push $DOCKER_USERNAME/$FRONTEND_IMAGE:latest
 
-      - name: Discord Frontend Notification
+      - name: Discord Frontend Build Alert
         if: success()
         uses: Ilshidur/action-discord@master
         env:
@@ -267,16 +254,17 @@ jobs:
             ${{ env.DOCKER_USERNAME }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
 
   # =========================================================
-  # STAGE 6 — SMOKE TESTING
+  # STAGE 7 — SMOKE TEST
   # =========================================================
 
   smoke-test:
-    name: 🧪 Automated Smoke Testing
-    runs-on: ubuntu-latest
+    name: 🧪 Automated Smoke Test
 
     needs:
       - build-backend
       - build-frontend
+
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Source Code
@@ -287,43 +275,33 @@ jobs:
           cd backend
           go test ./... -v || echo "No tests found"
 
-      - name: Discord Smoke Test Notification
-        if: success()
-        uses: Ilshidur/action-discord@master
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        with:
-          args: |
-            🧪 Smoke Tests Completed Successfully
-
   # =========================================================
-  # STAGE 7 — GITOPS DEPLOYMENT
+  # STAGE 8 — GITOPS DEPLOYMENT
   # =========================================================
 
   deploy-dev:
-    name: 🚀 GitOps Deployment
-    runs-on: ubuntu-latest
+    name: 🚀 Deploy Dev Manifests
 
     needs:
       - smoke-test
 
+    runs-on: ubuntu-latest
+
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update Backend Deployment
+      - name: Update Kubernetes Backend Image
         run: |
-          sed -i "s|image: .*skillpulse-backend:.*|image: $DOCKER_USERNAME/$BACKEND_IMAGE:${{ github.sha }}|" \
-          k8s/skillpulse/backend-deployment.yaml
+          sed -i "s|image: .*skillpulse-backend:.*|image: $DOCKER_USERNAME/$BACKEND_IMAGE:${{ github.sha }}|" k8s/skillpulse/backend-deployment.yaml
 
-      - name: Update Frontend Deployment
+      - name: Update Kubernetes Frontend Image
         run: |
-          sed -i "s|image: .*skillpulse-frontend:.*|image: $DOCKER_USERNAME/$FRONTEND_IMAGE:${{ github.sha }}|" \
-          k8s/skillpulse/frontend-deployment.yaml
+          sed -i "s|image: .*skillpulse-frontend:.*|image: $DOCKER_USERNAME/$FRONTEND_IMAGE:${{ github.sha }}|" k8s/skillpulse/frontend-deployment.yaml
 
       - name: Commit GitOps Changes
         run: |
@@ -336,7 +314,7 @@ jobs:
 
           git push
 
-      - name: Discord Deployment Notification
+      - name: Discord Deployment Alert
         if: success()
         uses: Ilshidur/action-discord@master
         env:
@@ -349,97 +327,3 @@ jobs:
             Branch: ${{ github.ref_name }}
 
             Kubernetes manifests updated successfully.
-
-  # =========================================================
-  # STAGE 8 — TELEMETRY VALIDATION
-  # =========================================================
-
-  telemetry-validation:
-    name: 📊 Monitoring Validation
-    runs-on: ubuntu-latest
-
-    needs:
-      - deploy-dev
-
-    steps:
-      - name: Validate Monitoring Stack
-        run: |
-          echo "Prometheus validation successful"
-          echo "Grafana validation successful"
-          echo "Telemetry validation successful"
-
-  # =========================================================
-  # STAGE 9 — DAST SCAN
-  # =========================================================
-
-  dast-scan:
-    name: 🌐 OWASP ZAP DAST
-    runs-on: ubuntu-latest
-
-    needs:
-      - telemetry-validation
-
-    steps:
-      - name: ZAP Placeholder
-        run: |
-          echo "OWASP ZAP integration coming soon"
-
-  # =========================================================
-  # STAGE 10 — FINAL NOTIFICATIONS
-  # =========================================================
-
-  notify:
-    name: 📧 Final Notifications
-    runs-on: ubuntu-latest
-
-    if: always()
-
-    needs:
-      - dast-scan
-
-    steps:
-      - name: Discord Failure Alert
-        if: failure()
-        uses: Ilshidur/action-discord@master
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        with:
-          args: |
-            ❌ SkillPulse Pipeline Failed
-
-            Repository: ${{ github.repository }}
-            Branch: ${{ github.ref_name }}
-
-            Check GitHub Actions logs immediately.
-
-      - name: Send Deployment Mail
-        uses: dawidd6/action-send-mail@v3
-        continue-on-error: true
-
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
-
-          subject: "SkillPulse DevSecOps Pipeline Status"
-
-          to: ayushrai965@gmail.com
-
-          from: "SkillPulse DevSecOps"
-
-          body: |
-            SkillPulse deployment pipeline completed successfully.
-
-            Repository:
-            ${{ github.repository }}
-
-            Branch:
-            ${{ github.ref_name }}
-
-            Commit:
-            ${{ github.sha }}
-
-            Workflow:
-            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
