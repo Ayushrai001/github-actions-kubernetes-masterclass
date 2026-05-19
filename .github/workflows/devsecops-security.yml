@@ -160,3 +160,4 @@ jobs:
       - name: Prometheus & Grafana Validation Placeholder
         run: |
           echo "Telemetry validation will be implemented later"
+nano .github/workflows/devsecops-security.ymlnano .github/workflows/devsecops-security.yml
